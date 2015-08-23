@@ -64,7 +64,7 @@
       (batch-handler props kafka-docs))
       (reset! kafka-docs [])
       (reset! num-items 0)
-      (.commitOffsets c))))
+      (.commitOffsets c)))
 
 ;; TODO add props checking and exit if requried params are not passed
 (defn read-kafka
