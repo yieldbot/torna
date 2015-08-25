@@ -58,9 +58,10 @@
     (swap! num-items inc)
     (swap! total-items inc)
     (when (= 0 (mod @num-items batch-size))
-      (if @batchlognow?
-        (do (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
-            (reset! batchlognow? false)))
+;      (if @batchlognow?
+;        (do (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
+;            (reset! batchlognow? false)))
+      (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
       (batch-handler props kafka-docs))
       (reset! kafka-docs [])
       (reset! num-items 0)
