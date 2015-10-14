@@ -9,6 +9,7 @@
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
             [clj-time.core :as tc]
+            [clj-time.coerce :as tcoerceerce]
             [clj-kafka.core :as ckafka]
             [clj-kafka.consumer.zk :as ckafkaconsumerzk])
   (:gen-class))
@@ -17,6 +18,7 @@
 (def num-items (atom 0))
 (def batchlognow? (atom true))
 (def total-items (atom 0))
+(def batchwindow? (atom false))
 
 (defroutes app-routes
   (GET "/health" [] (response [{:torna-data "Torna is all fine"}]))
@@ -34,36 +36,38 @@
   [props]
   (while true
     (let [min (tc/minute (tc/to-time-zone (tc/now) tc/utc))]
-      (if (or (and (>= min 10)  (< min 11))
-              (and (>= min 20)  (< min 21))
-              (and (>= min 30)  (< min 31))
-              (and (>= min 40)  (< min 41))
-              (and (>= min 50)  (< min 51))
-              (and (>= min 0)  (< min 1)))
+      (if (= 0 (mod min 10))
         (do (reset! batchlognow? true)
             (Thread/sleep 60000))
         (Thread/sleep 30000)))))
 
-(defn launch-batchlog-readiness
+(defn check-batch-window
   [props]
-  (future (check-batchlog-readiness)))
+  (while true
+    (reset! batchwindow? true)
+    (Thread/sleep (* 1000 (get props :batch.time)))))
+
+;(defn launch-batchlog-readiness
+;  [props]
+;  (future (check-batchlog-readiness)))
 
 (defn collect-kafka-msg
   "collects kafka msgs in an atom"
-  [props batch-handler ^ConsumerConnector c batch-size kafka-msg]
+  [props batch-handler ^ConsumerConnector c batch-size batch-time kafka-msg]
   (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))
         offset (:offset kafka-msg)
         partition (:partition kafka-msg)]
     (swap! kafka-docs conj json-msg)
     (swap! num-items inc)
     (swap! total-items inc)
-    (when (= 0 (mod @num-items batch-size))
+    (when (or (= 0 (mod @num-items batch-size)) @batchwindow?)
       (if @batchlognow?
         (do (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
             (reset! batchlognow? false)))
       (batch-handler props kafka-docs)
       (reset! kafka-docs [])
       (reset! num-items 0)
+      (reset! batchwindow? false)
       (.commitOffsets c))))
 
 ;; TODO add props checking and exit if requried params are not passed
@@ -78,7 +82,13 @@
         batch-size (get props :batch.size)
         health-port (get props :health.port)]
     (when health-port (run-healthapp health-port))
-    (launch-batchlog-readiness props)
+    (future (check-batchlog-readiness props))
+    (if (and (not= topic-name "adimpression")
+             (not= topic-name "adserved")
+             (not= topic-name "tagdata")
+             (not (get props :batch.time)))
+      (future (check-batch-window props)))
     (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)] (collect-kafka-msg props batch-handler cons-conn batch-size msg)))))
+
