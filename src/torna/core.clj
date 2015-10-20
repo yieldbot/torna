@@ -18,7 +18,7 @@
 (def num-items (atom 0))
 (def batchlognow? (atom true))
 (def total-items (atom 0))
-(def batchwindow? (atom false))
+(def batchtime? (atom false))
 
 (defroutes app-routes
   (GET "/health" [] (response [{:torna-data "Torna is all fine"}]))
@@ -41,10 +41,10 @@
             (Thread/sleep 60000))
         (Thread/sleep 30000)))))
 
-(defn check-batch-window
+(defn check-batch-time
   [batch-time]
   (while true
-    (reset! batchwindow? true)
+    (reset! batchtime? true)
     (Thread/sleep (* 1000 batch-time))))
 
 (defn collect-kafka-msg
@@ -56,14 +56,14 @@
     (swap! kafka-docs conj json-msg)
     (swap! num-items inc)
     (swap! total-items inc)
-    (when (or (= 0 (mod @num-items batch-size)) @batchwindow?)
+    (when (or (= 0 (mod @num-items batch-size)) @batchtime?)
       (if @batchlognow?
         (do (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
             (reset! batchlognow? false)))
       (batch-handler props kafka-docs)
       (reset! kafka-docs [])
       (reset! num-items 0)
-      (reset! batchwindow? false)
+      (reset! batchtime? false)
       (.commitOffsets c))))
 
 ;; TODO add props checking and exit if requried params are not passed
@@ -81,7 +81,7 @@
     (when health-port (run-healthapp health-port))
     (future (check-batchlog-readiness props))
     (if (not batch-time)
-      (future (check-batch-window batch-time)))
+      (future (check-batch-time batch-time)))
     (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)]
