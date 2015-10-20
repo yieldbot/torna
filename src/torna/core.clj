@@ -42,18 +42,14 @@
         (Thread/sleep 30000)))))
 
 (defn check-batch-window
-  [props]
+  [batch-time]
   (while true
     (reset! batchwindow? true)
-    (Thread/sleep (* 1000 (get props :batch.time)))))
-
-;(defn launch-batchlog-readiness
-;  [props]
-;  (future (check-batchlog-readiness)))
+    (Thread/sleep (* 1000 batch-time))))
 
 (defn collect-kafka-msg
   "collects kafka msgs in an atom"
-  [props batch-handler ^ConsumerConnector c batch-size batch-time kafka-msg]
+  [props batch-handler ^ConsumerConnector c batch-size kafka-msg]
   (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))
         offset (:offset kafka-msg)
         partition (:partition kafka-msg)]
@@ -80,15 +76,17 @@
                 }
         topic-name (get props :topic.name)
         batch-size (get props :batch.size)
-        health-port (get props :health.port)]
+        health-port (get props :health.port)
+        batch-time (get props :batch.time)]
     (when health-port (run-healthapp health-port))
     (future (check-batchlog-readiness props))
     (if (and (not= topic-name "adimpression")
              (not= topic-name "adserved")
              (not= topic-name "tagdata")
-             (not (get props :batch.time)))
-      (future (check-batch-window props)))
+             (not batch-time))
+      (future (check-batch-window batch-time)))
     (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
       ckafkaconsumerzk/shutdown
-      (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)] (collect-kafka-msg props batch-handler cons-conn batch-size msg)))))
+      (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)]
+        (collect-kafka-msg props batch-handler cons-conn batch-size msg)))))
 
