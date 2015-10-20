@@ -80,10 +80,7 @@
         batch-time (get props :batch.time)]
     (when health-port (run-healthapp health-port))
     (future (check-batchlog-readiness props))
-    (if (and (not= topic-name "adimpression")
-             (not= topic-name "adserved")
-             (not= topic-name "tagdata")
-             (not batch-time))
+    (if (not batch-time)
       (future (check-batch-window batch-time)))
     (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
       ckafkaconsumerzk/shutdown
