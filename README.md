@@ -1,36 +1,30 @@
-# torna
+# Torna
 
-FIXME: description
+A clojure library for reading messages from kafka and passing it to a batch-handler.
+
+The batch-handler can do whatever it likes with these batches of messages.
+Few Examples:
+
+ * Couchbase inserter
+ 
+ * Elasticsearch indexer
+ 
+ * Redis inserter
+ 
+ * Custom processor.
+
 
 ## Installation
+Torna is available from clojars.
+Add one of the following to the dependences in your project.clj file:
 
-Download from http://example.com/FIXME.
+### With Leiningen
+`[yieldbot/torna "0.1.1-SNAPSHOT"]`
 
-## Usage
-
-FIXME: explanation
-
-    $ java -jar torna-0.1.0-standalone.jar [args]
-
-## Options
-
-FIXME: listing of options this app accepts.
-
-## Examples
-
-...
-
-### Bugs
-
-...
-
-### Any Other Sections
-### That You Think
-### Might be Useful
 
 ## License
 
-Copyright © 2015 FIXME
+Copyright © 2015 Yieldbot
 
 Distributed under the Eclipse Public License either version 1.0 or (at
 your option) any later version.
