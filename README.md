@@ -1,4 +1,4 @@
-# Torna
+![Torna] (https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Torna_Fort1.jpg/640px-Torna_Fort1.jpg)
 
 A clojure library for reading messages from kafka and passing it to a batch-handler.
 
