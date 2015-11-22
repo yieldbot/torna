@@ -19,6 +19,7 @@ Torna is available from clojars.
 Add one of the following to the dependences in your project.clj file:
 
 ### With Leiningen
+[![Clojars Project](http://clojars.org/yieldbot/torna/latest-version.svg)]
 `[yieldbot/torna "0.1.1-SNAPSHOT"]`
 
 
