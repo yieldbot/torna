@@ -1,4 +1,4 @@
-(defproject yieldbot/torna "0.1.1-SNAPSHOT"
+(defproject yieldbot/torna "0.1.2-SNAPSHOT"
   :description "Kafka batch processor library"
   :url "https://github.com/yieldbot/torna"
   :license {:name "Eclipse Public License"
