@@ -80,10 +80,9 @@
         batch-time (get props :batch.time)]
     (when health-port (run-healthapp health-port))
     (future (check-batchlog-readiness props))
-    (if (not batch-time)
+    (if batch-time
       (future (check-batch-time batch-time)))
     (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)]
         (collect-kafka-msg props batch-handler cons-conn batch-size msg)))))
-
