@@ -66,7 +66,21 @@
       (reset! batchtime? false)
       (.commitOffsets c))))
 
-;; TODO add props checking and exit if requried params are not passed
+(defn verify-params
+  [props]
+  (when (nil? (get props :group.id))
+    (log/error "ERROR: Mandatory param :group.id absent")
+    (System/exit 2))
+  (when (nil? (get props :kafka.zk.connect))
+    (log/error "ERROR: Mandatory param :kafka.zk.connect absent")
+    (System/exit 2))
+  (when (nil? (get props :topic.name))
+    (log/error "ERROR: Mandatory param :topic.name absent")
+    (System/exit 2))
+  (when (nil? (get props :batch.size))
+    (log/error "ERROR: Mandatory param :batch.size absent")
+    (System/exit 2)))
+
 (defn read-kafka
   [props batch-handler]
   (let [config {"zookeeper.connect" (get props :kafka.zk.connect)
@@ -78,6 +92,7 @@
         batch-size (get props :batch.size)
         health-port (get props :health.port)
         batch-time (get props :batch.time)]
+    (verify-params props)
     (when health-port (run-healthapp health-port))
     (future (check-batchlog-readiness props))
     (if batch-time
