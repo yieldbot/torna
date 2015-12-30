@@ -18,7 +18,6 @@
 (def num-items (atom 0))
 (def batchlognow? (atom true))
 (def total-items (atom 0))
-(def last-ship-time (atom 0))
 (def cons-conn (atom nil))
 
 (defroutes app-routes
@@ -51,7 +50,6 @@
     (batch-handler props kafka-docs)
     (reset! kafka-docs [])
     (reset! num-items 0)
-    (reset! last-ship-time (tcoerce/to-long (tc/now)))
     (.commitOffsets @cons-conn)))
 
 (defn ready-to-ship?
@@ -59,11 +57,8 @@
   Else if batch-interval is configured and if elapsed time more than
   batch-interval then return true else return false"
   [batch-size batch-interval]
-  (if (= 0 (mod @num-items batch-size))
-    true
-    (if batch-interval
-      (when (> (- (tcoerce/to-long (tc/now)) @last-ship-time) (* batch-interval 1000))
-        true))))
+  (when (= 0 (mod @num-items batch-size))
+    true))
 
 (defn check-batch-interval
   [props batch-interval batch-handler]
@@ -73,10 +68,8 @@
 
 (defn collect-kafka-msg
   "collects kafka msgs in an atom"
-  [props batch-handler ^ConsumerConnector c batch-size kafka-msg batch-interval]
-  (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))
-        offset (:offset kafka-msg)
-        partition (:partition kafka-msg)]
+  [props batch-handler batch-size kafka-msg batch-interval]
+  (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))]
     (swap! kafka-docs conj json-msg)
     (swap! num-items inc)
     (swap! total-items inc)
@@ -103,8 +96,7 @@
   (let [config {"zookeeper.connect" (get props :kafka.zk.connect)
                 "group.id" (get props :group.id)
                 "auto.offset.reset" "smallest"
-                "auto.commit.enable" "false"
-                }
+                "auto.commit.enable" "false"}
         topic-name (get props :topic.name)
         batch-size (get props :batch.size)
         health-port (get props :health.port)
@@ -113,10 +105,9 @@
     (when health-port
       (run-healthapp health-port))
     (future (check-batchlog-readiness props))
-    (if batch-interval
+    (when batch-interval
       (future (check-batch-interval props batch-interval batch-handler)))
-    (reset! last-ship-time (tcoerce/to-long (tc/now)))
     (ckafka/with-resource [tmp (reset! cons-conn (ckafkaconsumerzk/consumer config))]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages @cons-conn topic-name)]
-        (collect-kafka-msg props batch-handler cons-conn batch-size msg batch-interval)))))
+        (collect-kafka-msg props batch-handler batch-size msg batch-interval)))))
