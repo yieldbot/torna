@@ -9,7 +9,7 @@
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
             [clj-time.core :as tc]
-            [clj-time.coerce :as tcoerceerce]
+            [clj-time.coerce :as tcoerce]
             [clj-kafka.core :as ckafka]
             [clj-kafka.consumer.zk :as ckafkaconsumerzk])
   (:gen-class))
@@ -18,7 +18,8 @@
 (def num-items (atom 0))
 (def batchlognow? (atom true))
 (def total-items (atom 0))
-(def batchtime? (atom false))
+(def last-ship-time (atom 0))
+(def cons-conn (atom nil))
 
 (defroutes app-routes
   (GET "/health" [] (response [{:torna-data "Torna is all fine"}]))
@@ -41,30 +42,46 @@
             (Thread/sleep 60000))
         (Thread/sleep 30000)))))
 
-(defn check-batch-time
-  [batch-time]
+(defn ship-it
+  [props batch-handler]
+  (when (and (> (count @kafka-docs) 0) @cons-conn)
+    (when @batchlognow?
+      (log/info "Shipping batch topic.name=" (get props :topic.name) " total-items so far=" @total-items)
+      (reset! batchlognow? false))
+    (batch-handler props kafka-docs)
+    (reset! kafka-docs [])
+    (reset! num-items 0)
+    (reset! last-ship-time (tcoerce/to-long (tc/now)))
+    (.commitOffsets @cons-conn)))
+
+(defn ready-to-ship?
+  "If collected msgs so far are more than batch-size then return true
+  Else if batch-interval is configured and if elapsed time more than
+  batch-interval then return true else return false"
+  [batch-size batch-interval]
+  (if (= 0 (mod @num-items batch-size))
+    true
+    (if batch-interval
+      (when (> (- (tcoerce/to-long (tc/now)) @last-ship-time) (* batch-interval 1000))
+        true))))
+
+(defn check-batch-interval
+  [props batch-interval batch-handler]
   (while true
-    (reset! batchtime? true)
-    (Thread/sleep (* 1000 batch-time))))
+    (ship-it props batch-handler)
+    (Thread/sleep (* 1000 batch-interval))))
 
 (defn collect-kafka-msg
   "collects kafka msgs in an atom"
-  [props batch-handler ^ConsumerConnector c batch-size kafka-msg]
+  [props batch-handler ^ConsumerConnector c batch-size kafka-msg batch-interval]
   (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))
         offset (:offset kafka-msg)
         partition (:partition kafka-msg)]
     (swap! kafka-docs conj json-msg)
     (swap! num-items inc)
     (swap! total-items inc)
-    (when (or (= 0 (mod @num-items batch-size)) @batchtime?)
-      (if @batchlognow?
-        (do (log/info "processing batch , offset=" offset " topic.name=" (get props :topic.name) " batch-size=" batch-size " total-items so far=" @total-items)
-            (reset! batchlognow? false)))
-      (batch-handler props kafka-docs)
-      (reset! kafka-docs [])
-      (reset! num-items 0)
-      (reset! batchtime? false)
-      (.commitOffsets c))))
+    (when (ready-to-ship? batch-size batch-interval)
+      (ship-it props batch-handler))))
 
 (defn verify-params
   [props]
@@ -91,13 +108,15 @@
         topic-name (get props :topic.name)
         batch-size (get props :batch.size)
         health-port (get props :health.port)
-        batch-time (get props :batch.time)]
+        batch-interval (get props :batch.interval)]
     (verify-params props)
-    (when health-port (run-healthapp health-port))
+    (when health-port
+      (run-healthapp health-port))
     (future (check-batchlog-readiness props))
-    (if batch-time
-      (future (check-batch-time batch-time)))
-    (ckafka/with-resource [cons-conn (ckafkaconsumerzk/consumer config)]
+    (if batch-interval
+      (future (check-batch-interval props batch-interval batch-handler)))
+    (reset! last-ship-time (tcoerce/to-long (tc/now)))
+    (ckafka/with-resource [tmp (reset! cons-conn (ckafkaconsumerzk/consumer config))]
       ckafkaconsumerzk/shutdown
-      (doseq [msg (ckafkaconsumerzk/messages cons-conn topic-name)]
-        (collect-kafka-msg props batch-handler cons-conn batch-size msg)))))
+      (doseq [msg (ckafkaconsumerzk/messages @cons-conn topic-name)]
+        (collect-kafka-msg props batch-handler cons-conn batch-size msg batch-interval)))))
