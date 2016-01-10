@@ -15,10 +15,15 @@
   (:gen-class))
 
 (def kafka-docs (atom []))
-(def num-items (atom 0))
 (def batchlognow? (atom true))
 (def total-items (atom 0))
 (def cons-conn (atom nil))
+;; The timer thread calls ship-it method when it is time to send the batch
+;; It may happen that the core-thread is already in process of shipping,
+;; which read the kafka-docs and modifies them, if ship-it is called from within
+;; the check-batch-interval thread then it may cause problems, hence this locking
+;; We only do this locking if batch-interval is specified
+(def shipping-lock (Object.))
 
 (defroutes app-routes
   (GET "/health" [] (response [{:torna-data "Torna is all fine"}]))
@@ -49,29 +54,28 @@
       (reset! batchlognow? false))
     (batch-handler props kafka-docs)
     (reset! kafka-docs [])
-    (reset! num-items 0)
     (.commitOffsets @cons-conn)))
 
 (defn ready-to-ship?
-  "If collected msgs so far are more than batch-size then return true
+  "If accumulated msgs so far are more than batch-size then return true
   Else if batch-interval is configured and if elapsed time more than
   batch-interval then return true else return false"
   [batch-size batch-interval]
-  (when (= 0 (mod @num-items batch-size))
+  (when (= 0 (mod (count @kafka-docs) batch-size))
     true))
 
 (defn check-batch-interval
   [props batch-interval batch-handler]
   (while true
-    (ship-it props batch-handler)
+    (locking shipping-lock
+      (ship-it props batch-handler))
     (Thread/sleep (* 1000 batch-interval))))
 
-(defn collect-kafka-msg
-  "collects kafka msgs in an atom"
+(defn accumulate-kafka-msg
+  "accumulates kafka msgs in an atom"
   [props batch-handler batch-size kafka-msg batch-interval]
   (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))]
     (swap! kafka-docs conj json-msg)
-    (swap! num-items inc)
     (swap! total-items inc)
     (when (ready-to-ship? batch-size batch-interval)
       (ship-it props batch-handler))))
@@ -110,4 +114,7 @@
     (ckafka/with-resource [tmp (reset! cons-conn (ckafkaconsumerzk/consumer config))]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages @cons-conn topic-name)]
-        (collect-kafka-msg props batch-handler batch-size msg batch-interval)))))
+        (if batch-interval
+          (locking shipping-lock
+            (accumulate-kafka-msg props batch-handler batch-size msg batch-interval))
+          (accumulate-kafka-msg props batch-handler batch-size msg batch-interval))))))
