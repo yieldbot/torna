@@ -101,7 +101,7 @@
                 "group.id" (get props :group.id)
                 "auto.offset.reset" "smallest"
                 "auto.commit.enable" "false"
-                "fetch.message.max.bytes" (get props :fetch.message.max.bytes 1048576)}
+                "fetch.message.max.bytes" (str (get props :fetch.message.max.bytes 1048576))}
         topic-name (get props :topic.name)
         batch-size (get props :batch.size)
         health-port (get props :health.port)
