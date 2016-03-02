@@ -2,27 +2,27 @@
 
 A simple clojure library for your Kafka to 'X' needs..
 
-## Why ? 
+## Why ?
 Reading messages from Kafka and doing 'X' is a very common need. This library simplifies that via a common usage pattern. It hides all the complexities about connecting to kafka, reading the messages, handling timeouts etc. It lets you concentrate on the application logic of processing the kafka messages.  You simply need to pass your batch-handler, a function that has all your core processing logic and it handles all the low level details about Kafka.
 
 Few Examples of Batch Handlers:
 
  * Couchbase inserter
- 
+
  * Elasticsearch indexer
- 
+
  * Redis inserter
- 
+
  * Custom processor.
 
 ## Installation
 Torna is available from clojars.
-Add one of the following to the dependences in your project.clj file:
+Add the following to the dependences in your project.clj file:
 
 ### With Leiningen
 ![Clojars Project](http://clojars.org/yieldbot/torna/latest-version.svg)
 
-## Usage 
+## Usage
 ```clojure
 (ns couchbaseinserter
   (:require [torna.core :as torna]))
@@ -74,7 +74,7 @@ The `properties` definitions
 | `:couchbase.bucketname`  | No| N/A| Your custom property |
 | `:couchbase.hosts`  | No| N/A| Your custom property |
 
-## Running 
+## Running
 ```shell
 $ lein uberjar
 ...
