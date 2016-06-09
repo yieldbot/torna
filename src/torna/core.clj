@@ -35,7 +35,11 @@
 
 (defn run-healthapp
   [port]
-  (future (jetty/run-jetty (handler/site app) {:port port})))
+  (future
+    (try
+      (jetty/run-jetty (handler/site app) {:port port})
+      (catch Exception e
+        (log/info (str "run-healthapp caught exception e= " e))))))
 
 (defn check-batchlog-readiness
   [props]
@@ -109,9 +113,17 @@
     (verify-params props)
     (when health-port
       (run-healthapp health-port))
-    (future (check-batchlog-readiness props))
+    (future
+      (try
+        (check-batchlog-readiness props)
+        (catch Exception e
+          (log/info (str "check-batchlog-readiness caught exception e= " e)))))
     (when batch-interval
-      (future (check-batch-interval props batch-interval batch-handler)))
+      (future
+        (try
+          (check-batch-interval props batch-interval batch-handler)
+          (catch Exception e
+            (log/info (str "check-batch-interval caught exception e= " e))))))
     (ckafka/with-resource [tmp (reset! cons-conn (ckafkaconsumerzk/consumer config))]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages @cons-conn topic-name)]
