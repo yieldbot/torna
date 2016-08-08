@@ -11,6 +11,7 @@
                  [clj-http "1.1.0"]
                  [clj-time "0.6.0"]
                  [compojure "1.3.3"]
+                 [capacitor "0.6.0"]
                  [ring/ring-jetty-adapter "1.3.2"]
                  [ring/ring-json "0.3.1"]
                  [org.slf4j/slf4j-log4j12 "1.7.10"]]
