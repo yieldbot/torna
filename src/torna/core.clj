@@ -127,7 +127,12 @@
     (ckafka/with-resource [tmp (reset! cons-conn (ckafkaconsumerzk/consumer config))]
       ckafkaconsumerzk/shutdown
       (doseq [msg (ckafkaconsumerzk/messages @cons-conn topic-name)]
-        (if batch-interval
-          (locking shipping-lock
+        (try
+          (if batch-interval
+            (locking shipping-lock
+              (accumulate-kafka-msg props batch-handler batch-size msg batch-interval))
             (accumulate-kafka-msg props batch-handler batch-size msg batch-interval))
-          (accumulate-kafka-msg props batch-handler batch-size msg batch-interval))))))
+          (catch Exception e
+            (do
+              (log/error "Caught exception for message " msg)
+              (throw e))))))))
