@@ -135,4 +135,4 @@
           (catch Exception e
             (do
               (log/error "Caught exception for message " msg)
-              (throw e))))))))
+              (log/error (String. (:value kafka-msg) "UTF-8" )))))))))
