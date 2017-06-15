@@ -103,7 +103,7 @@
   [props batch-handler]
   (let [config {"zookeeper.connect" (get props :kafka.zk.connect)
                 "group.id" (get props :group.id)
-                "auto.offset.reset" "smallest"
+                "auto.offset.reset" (get props :auto.offset.reset "smallest")
                 "auto.commit.enable" "false"
                 "fetch.message.max.bytes" (str (get props :fetch.message.max.bytes 1048576))}
         topic-name (get props :topic.name)
