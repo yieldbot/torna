@@ -1,6 +1,5 @@
 (ns torna.testapp
-  (:require [clojure.string :as string]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [torna.core :as torna])
   (:gen-class))
 

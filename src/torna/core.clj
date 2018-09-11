@@ -9,7 +9,6 @@
             [ring.adapter.jetty :as jetty]
             [cheshire.core :as json]
             [clj-time.core :as tc]
-            [clj-time.coerce :as tcoerce]
             [clj-kafka.core :as ckafka]
             [clj-kafka.consumer.zk :as ckafkaconsumerzk])
   (:gen-class))
@@ -78,7 +77,7 @@
 (defn accumulate-kafka-msg
   "accumulates kafka msgs in an atom"
   [props batch-handler batch-size kafka-msg batch-interval]
-  (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8" ))]
+  (let [json-msg (json/parse-string (String. (:value kafka-msg) "UTF-8"))]
     (swap! kafka-docs conj json-msg)
     (swap! total-items inc)
     (when (ready-to-ship? batch-size batch-interval)

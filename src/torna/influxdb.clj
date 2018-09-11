@@ -1,8 +1,5 @@
 (ns torna.influxdb
     (:require [capacitor.core                       :as icore]
-              [cheshire.core                        :as json]
-              [clj-time.core                        :as tcore]
-              [clj-time.format                      :as tformat]
               [clojure.tools.logging                :as log]))
 
 (def influx-con (atom nil))
